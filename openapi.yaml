@@ -1,0 +1,777 @@
+openapi: 3.0.3
+info:
+  title: Carsharing Rental API
+  description: >
+    Спецификация REST API для сервиса аренды автомобилей
+    (Лабораторная работа №2, вариант 5).
+    Роли: DRIVER (водитель) и OPERATOR (оператор автопарка).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Локальный сервер разработки
+
+tags:
+  - name: Auth
+    description: Регистрация и аутентификация
+  - name: Cars
+    description: Автопарк
+  - name: Tariffs
+    description: Тарифы
+  - name: Bookings
+    description: Бронирования и аренда
+  - name: Transactions
+    description: Финансовые операции
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Регистрация нового водителя
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/login:
+    post:
+      summary: Вход в систему и получение JWT-токена
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cars:
+    get:
+      summary: Получение списка автомобилей
+      tags: [Cars]
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу автомобиля
+          required: false
+          schema:
+            $ref: '#/components/schemas/CarStatus'
+        - name: min_fuel_level
+          in: query
+          description: Минимальный уровень топлива (%)
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Список автомобилей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Добавление автомобиля в автопарк (только OPERATOR)
+      tags: [Cars]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarRequest'
+      responses:
+        '201':
+          description: Автомобиль создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cars/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      summary: Получение автомобиля по ID
+      tags: [Cars]
+      responses:
+        '200':
+          description: Данные автомобиля
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      summary: Полное обновление данных автомобиля (только OPERATOR)
+      tags: [Cars]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarRequest'
+      responses:
+        '200':
+          description: Автомобиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      summary: Удаление автомобиля из автопарка (только OPERATOR)
+      tags: [Cars]
+      responses:
+        '204':
+          description: Автомобиль удалён
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cars/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    patch:
+      summary: Изменение статуса автомобиля (только OPERATOR)
+      tags: [Cars]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarStatusUpdateRequest'
+      responses:
+        '200':
+          description: Статус изменён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /tariffs:
+    get:
+      summary: Получение списка тарифов
+      tags: [Tariffs]
+      responses:
+        '200':
+          description: Список тарифов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TariffResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Создание тарифа (только OPERATOR)
+      tags: [Tariffs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TariffRequest'
+      responses:
+        '201':
+          description: Тариф создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TariffResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /bookings:
+    get:
+      summary: Список бронирований (DRIVER - свои, OPERATOR - все)
+      tags: [Bookings]
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу бронирования
+          required: false
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Список бронирований
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      summary: Бронирование автомобиля (холдирование депозита)
+      tags: [Bookings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Бронирование создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /bookings/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    get:
+      summary: Получение бронирования по ID (владелец или OPERATOR)
+      tags: [Bookings]
+      responses:
+        '200':
+          description: Данные бронирования
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /bookings/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/IdPath'
+    patch:
+      summary: Смена статуса бронирования (начать, завершить, отменить)
+      description: >
+        Допустимые переходы: BOOKED -> ACTIVE, ACTIVE -> COMPLETED,
+        BOOKED -> CANCELLED. При завершении рассчитывается total_cost
+        и создаётся транзакция PAYMENT; при отмене - REFUND депозита.
+      tags: [Bookings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingStatusUpdateRequest'
+      responses:
+        '200':
+          description: Статус изменён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions:
+    get:
+      summary: Список транзакций (DRIVER - свои, OPERATOR - все)
+      tags: [Transactions]
+      parameters:
+        - name: booking_id
+          in: query
+          description: Фильтр по бронированию
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TransactionType'
+      responses:
+        '200':
+          description: Список транзакций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор ресурса (UUID)
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Ошибка валидации входных данных
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INVALID_INPUT
+            message: Поле price_per_minute не может быть отрицательным
+            timestamp: '2026-10-14T10:00:00Z'
+    Unauthorized:
+      description: Токен отсутствует или недействителен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: UNAUTHORIZED
+            message: Требуется аутентификация
+            timestamp: '2026-10-14T10:00:00Z'
+    Forbidden:
+      description: Недостаточно прав для выполнения действия
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: FORBIDDEN
+            message: Действие доступно только оператору автопарка
+            timestamp: '2026-10-14T10:00:00Z'
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: NOT_FOUND
+            message: Ресурс не найден
+            timestamp: '2026-10-14T10:00:00Z'
+    Conflict:
+      description: Конфликт состояния ресурса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: CAR_NOT_AVAILABLE
+            message: Автомобиль уже занят или находится на обслуживании
+            timestamp: '2026-10-14T10:00:00Z'
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: INTERNAL_ERROR
+            message: Внутренняя ошибка сервера
+            timestamp: '2026-10-14T10:00:00Z'
+
+  schemas:
+    # ---------- Enums ----------
+    UserRole:
+      type: string
+      enum: [DRIVER, OPERATOR]
+    CarStatus:
+      type: string
+      enum: [Available, Rented, Maintenance]
+    BookingStatus:
+      type: string
+      enum: [BOOKED, ACTIVE, COMPLETED, CANCELLED]
+    TransactionType:
+      type: string
+      enum: [DEPOSIT_HOLD, PAYMENT, REFUND]
+
+    # ---------- Auth / Users ----------
+    RegisterRequest:
+      type: object
+      required: [email, password, license_number]
+      properties:
+        email:
+          type: string
+          format: email
+          example: driver@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: StrongPass123
+        license_number:
+          type: string
+          description: Номер водительского удостоверения
+          example: 77AB123456
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: driver@example.com
+        password:
+          type: string
+          format: password
+          example: StrongPass123
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Время жизни токена, секунды
+          example: 3600
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        license_number:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    # ---------- Cars ----------
+    CarRequest:
+      type: object
+      required: [vin, model_name, license_plate, tariff_id]
+      properties:
+        vin:
+          type: string
+          minLength: 17
+          maxLength: 17
+          example: XTA210930Y2765432
+        model_name:
+          type: string
+          example: Kia Rio
+        license_plate:
+          type: string
+          example: A123BC77
+        current_mileage:
+          type: integer
+          minimum: 0
+          example: 15400
+        fuel_level:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 80.5
+        status:
+          $ref: '#/components/schemas/CarStatus'
+        tariff_id:
+          type: string
+          format: uuid
+    CarResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        vin:
+          type: string
+        model_name:
+          type: string
+        license_plate:
+          type: string
+        current_mileage:
+          type: integer
+        fuel_level:
+          type: number
+        status:
+          $ref: '#/components/schemas/CarStatus'
+        tariff_id:
+          type: string
+          format: uuid
+    CarStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/CarStatus'
+
+    # ---------- Tariffs ----------
+    TariffRequest:
+      type: object
+      required: [name, price_per_minute, price_per_day, deposit_amount]
+      properties:
+        name:
+          type: string
+          example: Standard
+        price_per_minute:
+          type: number
+          minimum: 0
+          example: 12.50
+        price_per_day:
+          type: number
+          minimum: 0
+          example: 3500.00
+        deposit_amount:
+          type: number
+          minimum: 0
+          example: 5000.00
+    TariffResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        price_per_minute:
+          type: number
+        price_per_day:
+          type: number
+        deposit_amount:
+          type: number
+
+    # ---------- Bookings ----------
+    BookingRequest:
+      type: object
+      required: [car_id, start_time]
+      properties:
+        car_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+          example: '2026-10-15T09:00:00Z'
+    BookingStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, CANCELLED]
+    BookingResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        car_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        total_cost:
+          type: number
+          nullable: true
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+
+    # ---------- Transactions ----------
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        booking_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          example: 5000.00
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        created_at:
+          type: string
+          format: date-time
+
+    # ---------- Errors ----------
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: INVALID_INPUT
+        message:
+          type: string
+          example: Поле price_per_minute не может быть отрицательным
+        timestamp:
+          type: string
+          format: date-time
