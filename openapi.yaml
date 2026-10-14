@@ -12,6 +12,8 @@ servers:
     description: Локальный сервер разработки
 
 tags:
+  - name: Health
+    description: Состояние сервиса
   - name: Auth
     description: Регистрация и аутентификация
   - name: Cars
@@ -27,6 +29,19 @@ security:
   - bearerAuth: []
 
 paths:
+  /health:
+    get:
+      summary: Проверка работоспособности сервиса (Health Check)
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
   /auth/register:
     post:
       summary: Регистрация нового водителя
@@ -761,6 +776,27 @@ components:
         created_at:
           type: string
           format: date-time
+
+    # ---------- Health ----------
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: pass
+        app_name:
+          type: string
+          example: Carsharing Rental API
+        version:
+          type: string
+          example: 1.0.0
+        environment:
+          type: string
+          example: development
+        uptime_seconds:
+          type: integer
+          description: Время работы сервиса с момента запуска, секунды
+          example: 3600
 
     # ---------- Errors ----------
     ErrorResponse:
