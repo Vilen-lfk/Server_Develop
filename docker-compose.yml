@@ -1,0 +1,30 @@
+
+name: carsharing
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: carsharing-db
+    environment:
+      POSTGRES_USER: carsharing
+      POSTGRES_PASSWORD: carsharing123
+      POSTGRES_DB: carsharing
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: carsharing-rental-api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
