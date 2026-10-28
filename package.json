@@ -1,0 +1,16 @@
+{
+  "name": "carsharing-rental-api",
+  "version": "1.0.0",
+  "description": "Сервис аренды автомобилей (Carsharing / Rental API) - лабораторные работы по разработке серверных приложений",
+  "type": "module",
+  "main": "cmd/app/index.js",
+  "scripts": {
+    "start": "node cmd/app/index.js",
+    "dev": "node --watch cmd/app/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

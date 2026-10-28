@@ -1,0 +1,32 @@
+# VCS и IDE
+.git
+.gitignore
+.idea/
+.vscode/
+
+# Секреты и локальная конфигурация
+.env
+.env.local
+
+# Зависимости и результаты сборки
+node_modules/
+dist/
+build/
+bin/
+__pycache__/
+.venv/
+venv/
+
+# Тесты и логи
+**/*.test.js
+*.log
+npm-debug.log*
+
+# Документация
+README.md
+ARCHITECTURE.md
+openapi.yaml
+
+# Файлы самой контейнеризации
+Dockerfile
+.dockerignore
