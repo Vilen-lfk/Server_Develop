@@ -1,30 +1,61 @@
-
 name: carsharing
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: carsharing-db
-    environment:
-      POSTGRES_USER: carsharing
-      POSTGRES_PASSWORD: carsharing123
-      POSTGRES_DB: carsharing
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:?задайте DB_USER в .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env}
+      POSTGRES_DB: ${DB_NAME:?задайте DB_NAME в .env}
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
-  api:
+  migrate:
+    image: migrate/migrate:v4.18.1
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+      - "up"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: carsharing-rental-api
-    ports:
-      - "3000:3000"
-    depends_on:
-      - db
+    image: carsharing-api:latest
     restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    environment:
+      APP_NAME: ${APP_NAME:-Carsharing Rental API}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      APP_ENV: ${APP_ENV:-production}
+      HTTP_PORT: 8080
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_MAX_CONNS: ${DB_MAX_CONNS:-10}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
-  postgres_data:
+  pgdata:

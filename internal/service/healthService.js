@@ -1,28 +1,24 @@
-// Слой бизнес-логики (Service Layer).
-// Ничего не знает про HTTP: принимает конфигурацию и возвращает обычный объект.
-
 export class HealthService {
   #config;
+  #checkDatabase;
   #now;
   #startedAt;
 
-  /**
-   * @param {{appName: string, appVersion: string, appEnv: string}} config
-   * @param {() => number} [now] - источник времени (можно подменить в тестах)
-   */
-  constructor(config, now = Date.now) {
+  constructor(config, { checkDatabase = async () => true, now = Date.now } = {}) {
     this.#config = config;
+    this.#checkDatabase = checkDatabase;
     this.#now = now;
     this.#startedAt = now();
   }
 
-  /** Возвращает состояние сервиса. */
-  check() {
+  async check() {
+    const dbUp = await this.#checkDatabase();
     return {
-      status: 'pass',
+      status: dbUp ? 'pass' : 'fail',
       app_name: this.#config.appName,
       version: this.#config.appVersion,
       environment: this.#config.appEnv,
+      db: dbUp ? 'up' : 'down',
       uptime_seconds: Math.floor((this.#now() - this.#startedAt) / 1000),
     };
   }

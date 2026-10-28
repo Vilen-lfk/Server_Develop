@@ -1,12 +1,6 @@
-// Слой конфигурации: читает параметры из переменных окружения и файла .env.
-// Остальные слои приложения получают готовый объект config и не обращаются к process.env.
 import { existsSync, readFileSync } from 'node:fs';
 
-/**
- * Минимальный парсер .env (KEY=VALUE, комментарии "#", значения в кавычках).
- * Уже заданные переменные окружения имеют приоритет над файлом.
- */
-function loadDotEnv(path = '.env') {
+function loadDotEnv(path, env) {
   if (!existsSync(path)) return;
 
   for (const rawLine of readFileSync(path, 'utf8').split(/\r?\n/)) {
@@ -25,23 +19,41 @@ function loadDotEnv(path = '.env') {
     ) {
       value = value.slice(1, -1);
     }
-    if (process.env[key] === undefined) process.env[key] = value;
+    if (env[key] === undefined) env[key] = value;
   }
 }
 
-/** Загружает и валидирует конфигурацию приложения. */
-export function loadConfig() {
-  loadDotEnv();
+function parseInteger(env, name, fallback, { min, max }) {
+  const raw = env[name] === undefined || env[name] === '' ? String(fallback) : env[name];
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || value < min || value > max) {
+    throw new Error(`${name} должен быть целым числом от ${min} до ${max}, получено: ${raw}`);
+  }
+  return value;
+}
 
-  const port = Number.parseInt(process.env.HTTP_PORT ?? '8080', 10);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error(`HTTP_PORT должен быть числом от 1 до 65535, получено: ${process.env.HTTP_PORT}`);
+const REQUIRED_DB_VARS = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+
+export function loadConfig({ env = process.env, envFile = '.env' } = {}) {
+  if (envFile) loadDotEnv(envFile, env);
+
+  const missing = REQUIRED_DB_VARS.filter((name) => !env[name]);
+  if (missing.length > 0) {
+    throw new Error(`Не заданы обязательные переменные окружения: ${missing.join(', ')}`);
   }
 
   return Object.freeze({
-    appName: process.env.APP_NAME ?? 'Carsharing Rental API',
-    appVersion: process.env.APP_VERSION ?? '1.0.0',
-    appEnv: process.env.APP_ENV ?? 'development',
-    httpPort: port,
+    appName: env.APP_NAME || 'Carsharing Rental API',
+    appVersion: env.APP_VERSION || '1.0.0',
+    appEnv: env.APP_ENV || 'development',
+    httpPort: parseInteger(env, 'HTTP_PORT', 8080, { min: 1, max: 65535 }),
+    db: Object.freeze({
+      host: env.DB_HOST,
+      port: parseInteger(env, 'DB_PORT', 5432, { min: 1, max: 65535 }),
+      user: env.DB_USER,
+      password: env.DB_PASSWORD,
+      name: env.DB_NAME,
+      maxConns: parseInteger(env, 'DB_MAX_CONNS', 10, { min: 1, max: 1000 }),
+    }),
   });
 }

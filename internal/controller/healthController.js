@@ -1,17 +1,19 @@
-// Transport / HTTP-слой. Разбирает запрос, вызывает сервис, формирует HTTP-ответ.
-// Зависит от абстракции "объект с методом check()", а не от конкретного класса.
 import { sendJson } from './http.js';
 
 export class HealthController {
   #healthService;
 
-  /** @param {{check: () => object}} healthService */
   constructor(healthService) {
     this.#healthService = healthService;
   }
 
-  /** GET /api/v1/health */
-  handle(req, res) {
-    sendJson(res, 200, this.#healthService.check());
+  register(router) {
+    router.get('/health', (req, res) => this.#handle(req, res));
+  }
+
+  // GET /api/v1/health: 200 если всё работает, 503 если недоступна БД
+  async #handle(req, res) {
+    const result = await this.#healthService.check();
+    sendJson(res, result.status === 'pass' ? 200 : 503, result);
   }
 }
