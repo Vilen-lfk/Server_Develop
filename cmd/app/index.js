@@ -4,6 +4,9 @@ import { connect, ping } from '../../internal/database/postgres.js';
 import { HealthService } from '../../internal/service/healthService.js';
 import { HealthController } from '../../internal/controller/healthController.js';
 import { createRouter } from '../../internal/controller/router.js';
+import { PgUserRepository } from '../../internal/repository/postgres/userRepository.js';
+import { PgTariffRepository } from '../../internal/repository/postgres/tariffRepository.js';
+import { PgCarRepository } from '../../internal/repository/postgres/carRepository.js';
 
 let config;
 try {
@@ -22,6 +25,9 @@ try {
   process.exit(1);
 }
 
+const userRepo = new PgUserRepository(pool);
+const tariffRepo = new PgTariffRepository(pool);
+const carRepo = new PgCarRepository(pool);
 const healthService = new HealthService(config, { checkDatabase: () => ping(pool) });
 
 const router = createRouter({ prefix: '/api/v1' });

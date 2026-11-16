@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node cmd/app/index.js",
     "dev": "node --watch cmd/app/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:integration": "node --test internal/repository/postgres/repo.integration.test.js"
   },
   "engines": {
     "node": ">=18"
