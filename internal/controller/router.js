@@ -1,17 +1,32 @@
+import { DomainError } from '../domain/errors.js';
 import { HttpError, sendError } from './http.js';
+
+const DOMAIN_HTTP = {
+  INVALID_INPUT: 400,
+  NOT_FOUND: 404,
+  ALREADY_EXISTS: 409,
+  CONFLICT: 409,
+};
 
 export function createRouter({ prefix = '' } = {}) {
   const routes = [];
 
   function add(method, path, handler) {
     const names = [];
+
     const pattern = (prefix + path)
       .replace(/\/+$/, '')
       .replace(/:([A-Za-z_]+)/g, (_, name) => {
         names.push(name);
         return '([^/]+)';
       });
-    routes.push({ method, regex: new RegExp(`^${pattern}$`), names, handler });
+
+    routes.push({
+      method,
+      regex: new RegExp(`^${pattern}$`),
+      names,
+      handler,
+    });
   }
 
   async function handle(req, res) {
@@ -19,27 +34,68 @@ export function createRouter({ prefix = '' } = {}) {
     const path = pathname.replace(/\/+$/, '') || '/';
 
     let pathMatched = false;
+
     for (const route of routes) {
       const match = route.regex.exec(path);
+
       if (!match) continue;
+
       pathMatched = true;
+
       if (route.method !== req.method) continue;
 
       req.params = Object.fromEntries(
-        route.names.map((name, i) => [name, decodeURIComponent(match[i + 1])]),
+        route.names.map((name, i) => [
+          name,
+          decodeURIComponent(match[i + 1]),
+        ]),
       );
+
       try {
         return await route.handler(req, res);
       } catch (err) {
-        if (err instanceof HttpError) return sendError(res, err.status, err.code, err.message);
+        if (err instanceof HttpError) {
+          return sendError(
+            res,
+            err.status,
+            err.code,
+            err.message,
+          );
+        }
+
+        if (err instanceof DomainError) {
+          return sendError(
+            res,
+            DOMAIN_HTTP[err.code] ?? 500,
+            err.code,
+            err.message,
+          );
+        }
+
         console.error(err);
-        return sendError(res, 500, 'INTERNAL_ERROR', 'Внутренняя ошибка сервера');
+
+        return sendError(
+          res,
+          500,
+          'INTERNAL_ERROR',
+          'Внутренняя ошибка сервера',
+        );
       }
     }
 
     return pathMatched
-      ? sendError(res, 405, 'METHOD_NOT_ALLOWED', 'Метод не поддерживается')
-      : sendError(res, 404, 'NOT_FOUND', 'Ресурс не найден');
+      ? sendError(
+          res,
+          405,
+          'METHOD_NOT_ALLOWED',
+          'Метод не поддерживается',
+        )
+      : sendError(
+          res,
+          404,
+          'NOT_FOUND',
+          'Ресурс не найден',
+        );
   }
 
   return {
